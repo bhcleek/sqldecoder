@@ -24,12 +24,14 @@ func (e unmarshalTypeError) Error() string {
 
 func NewDecoder(rows *sql.Rows) (*Decoder, error) {
 	d := &Decoder{rows, make(map[string]int)}
-	cols, err := rows.Columns()
-	if err != nil {
-		return nil, err
-	}
-	for i, key := range cols {
-		d.columnMap[key] = i
+	if rows != nil {
+		cols, err := rows.Columns()
+		if err != nil {
+			return nil, err
+		}
+		for i, key := range cols {
+			d.columnMap[key] = i
+		}
 	}
 	return d, nil
 }
