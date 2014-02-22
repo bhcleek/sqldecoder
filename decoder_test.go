@@ -3,12 +3,39 @@ package sqldecoder
 import (
 	"bytes"
 	"database/sql"
+	"database/sql/driver"
 	"io"
 	"testing"
 	"time"
 
 	"github.com/erikstmartin/go-testdb"
 )
+
+type rows struct {
+	closed  bool
+	data    [][]driver.Value
+	columns []string
+}
+
+func (r *rows) Close() error {
+	if !r.closed {
+		r.closed = true
+	}
+	return nil
+}
+
+func (r *rows) Columns() []string {
+	return r.columns
+}
+
+func (r *rows) Next(dest []driver.Value) error {
+	if len(r.data) > 0 {
+		copy(dest, r.data[0][0:])
+		r.data = r.data[1:]
+		return nil
+	}
+	return io.EOF
+}
 
 type EmptyRowsRecord struct {
 }
@@ -36,59 +63,85 @@ func TestNilRows(t *testing.T) {
 }
 
 type ValueContainer struct {
-	natural      int64     `sql:"id"`
-	amount       float64   `sql:"amount"`
-	truth        bool      `sql:"isTruth"`
-	blob         []byte    `sql:"data"`
-	description  string    `sql:"description"`
-	creationTime time.Time `sql:"creation_time"`
+	Natural      int64     `sql:"id"`
+	Amount       float64   `sql:"amount"`
+	Truth        bool      `sql:"is_truth"`
+	Blob         []byte    `sql:"data"`
+	Description  string    `sql:"description"`
+	CreationTime time.Time `sql:"creation_time"`
 }
 
 func TestValues(t *testing.T) {
+	defer testdb.Reset()
+
 	db, err := sql.Open("testdb", "")
 	if err != nil {
 		t.Fatalf("mock database did not open: %s", err)
 	}
 
 	sql := "SELECT fields FROM TheTable"
-	//int64, float64, bool, []byte, string, time.Time
-
-	result := `1,1.1,false,I am a little teapot,short and stout,2009-11-10 23:00:00 +0000 UTC
-	`
-	testdb.StubQuery(sql, testdb.RowsFromCSVString([]string{"id", "amount", "truth", "blob", "description", "creation_time"}, result))
+	result := &rows{columns: []string{"id", "amount", "is_truth", "data", "description", "creation_time"},
+		data: [][]driver.Value{[]driver.Value{1, 1.1, false, []byte("I am a little teapot"), []byte("short and stout"), time.Date(2009, 11, 10, 23, 0, 0, 0, time.UTC)}}}
+	testdb.StubQuery(sql, result)
 
 	rows, err := db.Query(sql)
-	if target, err := NewDecoder(rows); err == nil {
-		expected := ValueContainer{natural: 1, amount: 1.1, truth: false, blob: []byte("blob"), description: "description", creationTime: time.Date(2009, 11, 10, 23, 00, 00, 0, time.UTC)}
-		actual := new(ValueContainer)
-		target.Decode(&actual)
+	target, err := NewDecoder(rows)
+	if err != nil {
+		t.Fatal("error creating decoder")
+	}
+	expected := ValueContainer{Natural: 1, Amount: 1.1, Truth: false, Blob: []byte("blob"), Description: "short and stout", CreationTime: time.Date(2009, 11, 10, 23, 00, 00, 0, time.UTC)}
+	actual := new(ValueContainer)
+	if err = target.Decode(actual); err != nil {
+		t.Fatalf("Decode failed: %s", err)
+	}
 
-		// todo: compare the byte slices
-		if actual.natural != expected.natural {
-			t.Errorf("got %v, expected %v", actual.natural, expected.natural)
-		}
+	if actual.Natural != expected.Natural {
+		t.Errorf("got %v, expected %v", actual.Natural, expected.Natural)
+	}
 
-		if actual.amount != expected.amount {
-			t.Errorf("got %v, expected %v", actual.amount, expected.amount)
-		}
+	if actual.Amount != expected.Amount {
+		t.Errorf("got %v, expected %v", actual.Amount, expected.Amount)
+	}
 
-		if actual.truth != expected.truth {
-			t.Errorf("got %v, expected %v", actual.truth, expected.truth)
-		}
+	if actual.Truth != expected.Truth {
+		t.Errorf("got %v, expected %v", actual.Truth, expected.Truth)
+	}
 
-		if bytes.Equal(actual.blob, expected.blob) {
-			t.Errorf("got %v, expected %v", actual.blob, expected.blob)
-		}
+	if bytes.Equal(actual.Blob, expected.Blob) {
+		t.Errorf("got %v, expected %v", actual.Blob, expected.Blob)
+	}
 
-		if actual.description != expected.description {
-			t.Errorf("got '%v', expected '%v'", actual.description, expected.description)
-		}
+	if actual.Description != expected.Description {
+		t.Errorf("got '%v', expected '%v'", actual.Description, expected.Description)
+	}
 
-		if actual.creationTime != expected.creationTime {
-			t.Errorf("got %v, expected %v", actual.creationTime, expected.creationTime)
-		}
-	} else {
-		t.Error("error creating decoder")
+	if actual.CreationTime != expected.CreationTime {
+		t.Errorf("got %v, expected %v", actual.CreationTime, expected.CreationTime)
+	}
+}
+
+func TestDecodeReturnsEOF(t *testing.T) {
+	defer testdb.Reset()
+
+	db, err := sql.Open("testdb", "")
+	if err != nil {
+		t.Fatalf("mock database did not open: %s", err)
+	}
+
+	sql := "SELECT fields FROM TheTable"
+	result := &rows{columns: []string{"id", "amount", "is_truth", "data", "description", "creation_time"},
+		data: [][]driver.Value{[]driver.Value{1, 1.1, false, []byte("I am a little teapot"), []byte("short and stout"), time.Date(2009, 11, 10, 23, 0, 0, 0, time.UTC)}}}
+	testdb.StubQuery(sql, result)
+
+	rows, err := db.Query(sql)
+	target, err := NewDecoder(rows)
+	if err != nil {
+		t.Fatal("error creating decoder")
+	}
+	actual := new(ValueContainer)
+	_ = target.Decode(actual)
+	if err = target.Decode(actual); err != io.EOF {
+		t.Errorf("Decode(actual), got %s, expected %s", err, io.EOF)
 	}
 }
 
