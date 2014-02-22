@@ -65,27 +65,27 @@ func TestValues(t *testing.T) {
 
 		// todo: compare the byte slices
 		if actual.natural != expected.natural {
-			t.Errorf("got %+v, expected %+v", actual.natural, expected.natural)
+			t.Errorf("got %v, expected %v", actual.natural, expected.natural)
 		}
 
 		if actual.amount != expected.amount {
-			t.Errorf("got %+v, expected %+v", actual.amount, expected.amount)
+			t.Errorf("got %v, expected %v", actual.amount, expected.amount)
 		}
 
 		if actual.truth != expected.truth {
-			t.Errorf("got %+v, expected %+v", actual.truth, expected.truth)
+			t.Errorf("got %v, expected %v", actual.truth, expected.truth)
 		}
 
 		if bytes.Equal(actual.blob, expected.blob) {
-			t.Errorf("got %+v, expected %+v", actual.blob, expected.blob)
+			t.Errorf("got %v, expected %v", actual.blob, expected.blob)
 		}
 
 		if actual.description != expected.description {
-			t.Errorf("got %+v, expected %+v", actual.description, expected.description)
+			t.Errorf("got '%v', expected '%v'", actual.description, expected.description)
 		}
 
 		if actual.creationTime != expected.creationTime {
-			t.Errorf("got %+v, expected %+v", actual.creationTime, expected.creationTime)
+			t.Errorf("got %v, expected %v", actual.creationTime, expected.creationTime)
 		}
 	} else {
 		t.Error("error creating decoder")
