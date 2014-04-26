@@ -11,6 +11,7 @@ import (
 	"github.com/erikstmartin/go-testdb"
 )
 
+// rows is a driver.Rows to be used by the testdb driver.
 type rows struct {
 	closed  bool
 	data    [][]driver.Value
@@ -144,29 +145,3 @@ func TestDecodeReturnsEOF(t *testing.T) {
 		t.Errorf("Decode(actual), got %s, expected %s", err, io.EOF)
 	}
 }
-
-/*
-func TestNullsToValues(t *testing.T) {
-	if target, err := NewDecoder(rows); err == nil {
-		t.Fatal("not implemented")
-	} else {
-		t.Error("error creating decoder")
-	}
-}
-
-func TestPointers(t *testing.T) {
-	if target, err := NewDecoder(rows); err == nil {
-		t.Fatal("not implemented")
-	} else {
-		t.Error("error creating decoder")
-	}
-}
-
-func TestNullToPointers(t *testing.T) {
-	if target, err := NewDecoder(rows); err == nil {
-		t.Fatal("not implemented")
-	} else {
-		t.Error("error creating decoder")
-	}
-}
-*/
