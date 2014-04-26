@@ -22,6 +22,7 @@ func (e unmarshalTypeError) Error() string {
 	return "Cannot unmarshal into value of type " + e.rt.String()
 }
 
+// NewDecoder returns a new decoder that reads from rows.
 func NewDecoder(rows *sql.Rows) (*Decoder, error) {
 	d := &Decoder{rows, make(map[string]int)}
 	if rows != nil {
@@ -51,9 +52,9 @@ func (d *Decoder) unmarshal(v interface{}) error {
 		fields := make([]interface{}, len(d.columnMap))
 		for i := 0; i < dst.NumField(); i++ {
 			fv := dst.Field(i)
-			if ok := dst.CanSet(); ok {
+			if ok := fv.CanSet(); ok {
 				ft := dst.Type().Field(i)
-				if colName := ft.Tag.Get("db"); colName != "" {
+				if colName := ft.Tag.Get("sql"); colName != "" {
 					if idx, ok := d.columnMap[colName]; ok {
 						fields[idx] = fv.Addr().Interface()
 					}
@@ -65,19 +66,21 @@ func (d *Decoder) unmarshal(v interface{}) error {
 		}
 	default:
 		return unmarshalTypeError{rt: dst.Type()}
-
 	}
 	return nil
 }
 
-// Decode the next row into v. v is expected to a struct. Returns io.EOF if there are no rows to decode.
+// Decode the next row into v. v is expected to a struct.
+// Returns io.EOF if there are no rows to decode.
 func (d *Decoder) Decode(v interface{}) error {
 	if d.rows == nil {
 		return io.EOF
 	}
 
 	if ok := d.rows.Next(); ok {
-		d.unmarshal(v)
+		if err := d.unmarshal(v); err != nil {
+			return err
+		}
 	} else {
 		return io.EOF
 	}
