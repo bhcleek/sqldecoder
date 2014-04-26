@@ -146,7 +146,7 @@ func TestDecodeReturnsEOF(t *testing.T) {
 	}
 }
 
-func TestDecodeValueProvidesError(t *testing.T) {
+func TestDecodeStructValueProvidesError(t *testing.T) {
 	defer testdb.Reset()
 
 	db, err := sql.Open("testdb", "")
@@ -169,6 +169,34 @@ func TestDecodeValueProvidesError(t *testing.T) {
 	}
 
 	vc := valueContainer{}
+	if err := target.Decode(vc); err == nil {
+		t.Fatalf("Decode(vc), got %s, expected nil", err.Error())
+	}
+}
+
+func TestDecodeNonStructProvidesError(t *testing.T) {
+	defer testdb.Reset()
+
+	db, err := sql.Open("testdb", "")
+	if err != nil {
+		t.Fatalf("test databse did not open: %s", err)
+	}
+	sql := "SELECT files from table"
+	result := &rows{columns: []string{"id", "amount", "is_truth", "data", "description", "creation_time"},
+		data: [][]driver.Value{[]driver.Value{1, 1.1, false, []byte("I am a little teapot"), []byte("short and stout"), time.Date(2009, 11, 10, 23, 0, 0, 0, time.UTC)}}}
+	testdb.StubQuery(sql, result)
+
+	rows, err := db.Query(sql)
+	if err != nil {
+		t.Fatalf("query error: %s", err)
+	}
+
+	target, err := NewDecoder(rows)
+	if err != nil {
+		t.Fatal("error creating decoder")
+	}
+
+	vc := new(int64)
 	if err := target.Decode(vc); err == nil {
 		t.Fatalf("Decode(vc), got %s, expected nil", err.Error())
 	}
