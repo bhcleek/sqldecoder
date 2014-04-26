@@ -10,7 +10,10 @@ type Person struct{
 }
 
 func GetPeople(r *sql.Rows) (people []Person){
-	personDecoder, _ := decoder.NewDecoder(rows)
+	personDecoder, err := decoder.NewDecoder(rows)
+	if err != nil {
+		return nil
+	}
 	people := make([]Person, 4)
 	for {
 		if err := decoder.Decode(&someone); err == io.EOF {
