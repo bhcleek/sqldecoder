@@ -209,7 +209,7 @@ func TestDecodeStructValueProvidesError(t *testing.T) {
 
 	db, err := sql.Open("testdb", "")
 	if err != nil {
-		t.Fatalf("test databse did not open: %s", err)
+		t.Fatalf("test database did not open: %s", err)
 	}
 	sql := "SELECT files from table"
 	result := &rows{columns: []string{"id", "amount", "is_truth", "data", "description", "creation_time"},
@@ -226,9 +226,17 @@ func TestDecodeStructValueProvidesError(t *testing.T) {
 		t.Fatal("error creating decoder")
 	}
 
-	vc := new(valueContainer)
-	if err := target.Decode(vc); err == nil {
-		t.Fatalf("Decode(vc), got %s, expected nil", err.Error())
+	actual := new(taggedValueContainer)
+	err = target.Decode(*actual)
+	if err == nil {
+		t.Fatalf("Decode(*actual), got %s", err.Error())
+	}
+
+	switch err.(type) {
+	case unmarshalTypeError:
+		break
+	default:
+		t.Fatalf("Decode(*actual), got %v, expected unmarshalTypeError", err)
 	}
 }
 
@@ -237,7 +245,7 @@ func TestDecodeNonStructProvidesError(t *testing.T) {
 
 	db, err := sql.Open("testdb", "")
 	if err != nil {
-		t.Fatalf("test databse did not open: %s", err)
+		t.Fatalf("test database did not open: %s", err)
 	}
 	sql := "SELECT files from table"
 	result := &rows{columns: []string{"id", "amount", "is_truth", "data", "description", "creation_time"},
@@ -255,7 +263,15 @@ func TestDecodeNonStructProvidesError(t *testing.T) {
 	}
 
 	vc := new(int64)
-	if err := target.Decode(vc); err == nil {
-		t.Fatalf("Decode(vc), got %s, expected nil", err.Error())
+	err = target.Decode(vc)
+	if err == nil {
+		t.Fatalf("Decode(vc), got %s", err.Error())
+	}
+
+	switch err.(type) {
+	case unmarshalTypeError:
+		break
+	default:
+		t.Fatalf("Decode(*actual), got %v, expected unmarshalTypeError", err)
 	}
 }
