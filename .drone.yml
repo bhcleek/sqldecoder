@@ -1,6 +1,6 @@
 env:
   - GOPATH=$PWD
 script:
-  - go get
+  - go get -t
   - go build
   - go test -short
