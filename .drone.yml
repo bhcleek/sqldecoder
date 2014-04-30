@@ -1,3 +1,5 @@
+env:
+  - GOPATH=$PWD
 script:
   - go get
   - go build
