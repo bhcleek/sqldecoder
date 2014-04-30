@@ -6,12 +6,10 @@ import (
 	"reflect"
 )
 
-type fieldMap struct {
-	columnName string
-}
+type typeMap map[reflect.Type]map[string]int
 type Decoder struct {
-	rows      *sql.Rows
-	columnMap map[string]int
+	rows *sql.Rows
+	tm   typeMap
 }
 
 type unmarshalTypeError struct {
@@ -24,45 +22,74 @@ func (e unmarshalTypeError) Error() string {
 
 // NewDecoder returns a new decoder that reads from rows.
 func NewDecoder(rows *sql.Rows) (*Decoder, error) {
-	d := &Decoder{rows, make(map[string]int)}
-	if rows != nil {
-		cols, err := rows.Columns()
-		if err != nil {
-			return nil, err
+	d := &Decoder{rows: rows, tm: make(typeMap)}
+	return d, nil
+}
+
+// fieldMap provides a map whose keys are a column name and whose values are
+// the field index. The column name for a given exported field is (in priority
+// order):
+// 		the value of a sql tag on on the field
+//		the field name
+func fieldMap(t reflect.Type) map[string]int {
+	if t.Kind() != reflect.Struct {
+		return nil
+	}
+
+	fm := make(map[string]int)
+	tagged := make(map[string]bool)
+	for i := 0; i < t.NumField(); i++ {
+		ft := t.Field(i)
+		colName := ft.Tag.Get("sql")
+		if colName != "" {
+			fm[colName] = i
+			tagged[colName] = true
+			continue
 		}
-		for i, key := range cols {
-			d.columnMap[key] = i
+
+		colName = ft.Name
+		if _, ok := tagged[colName]; !ok {
+			fm[colName] = i
+			tagged[colName] = false
 		}
 	}
-	return d, nil
+
+	return fm
 }
 
 // unmarshal gets the data from the row and stores it in the value pointed to by v.
 func (d *Decoder) unmarshal(v interface{}) error {
-	var e error
-
-	shimmer := reflect.ValueOf(v)
-	if shimmer.Type().Kind() != reflect.Ptr {
-		return unmarshalTypeError{rt: shimmer.Type()}
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+		return unmarshalTypeError{rt: rv.Type()}
 	}
-	dst := shimmer.Elem()
+	dst := rv.Elem()
 
 	switch dst.Kind() {
 	case reflect.Struct:
-		fields := make([]interface{}, len(d.columnMap))
-		for i := 0; i < dst.NumField(); i++ {
-			fv := dst.Field(i)
-			if ok := fv.CanSet(); ok {
-				ft := dst.Type().Field(i)
-				if colName := ft.Tag.Get("sql"); colName != "" {
-					if idx, ok := d.columnMap[colName]; ok {
-						fields[idx] = fv.Addr().Interface()
-					}
+		fm, ok := d.tm[dst.Type()]
+		if !ok {
+			fm = fieldMap(dst.Type())
+			d.tm[dst.Type()] = fm
+		}
+
+		cols, err := d.rows.Columns()
+		if err != nil {
+			return err
+		}
+
+		fields := make([]interface{}, len(cols))
+		for ci, v := range cols {
+			if fi, ok := fm[v]; ok {
+				if fv := dst.Field(fi); fv.CanSet() {
+					fields[ci] = fv.Addr().Interface()
+					continue
 				}
 			}
 		}
-		if e = d.rows.Scan(fields...); e != nil {
-			return e
+
+		if err := d.rows.Scan(fields...); err != nil {
+			return err
 		}
 	default:
 		return unmarshalTypeError{rt: dst.Type()}
@@ -70,8 +97,8 @@ func (d *Decoder) unmarshal(v interface{}) error {
 	return nil
 }
 
-// Decode the next row into v. v is expected to a struct.
-// Returns io.EOF if there are no rows to decode.
+// Decode the next row into v. v is expected to be a struct.
+// Returns io.EOF if there are no more rows to decode.
 func (d *Decoder) Decode(v interface{}) error {
 	if d.rows == nil {
 		return io.EOF
