@@ -232,10 +232,7 @@ func TestDecodeStructValueProvidesError(t *testing.T) {
 		t.Fatalf("Decode(*actual), got %s", err.Error())
 	}
 
-	switch err.(type) {
-	case unmarshalTypeError:
-		break
-	default:
+	if _, ok := err.(unmarshalTypeError); !ok {
 		t.Fatalf("Decode(*actual), got %v, expected unmarshalTypeError", err)
 	}
 }
@@ -268,10 +265,7 @@ func TestDecodeNonStructProvidesError(t *testing.T) {
 		t.Fatalf("Decode(vc), got %s", err.Error())
 	}
 
-	switch err.(type) {
-	case unmarshalTypeError:
-		break
-	default:
+	if _, ok := err.(unmarshalTypeError); !ok {
 		t.Fatalf("Decode(*actual), got %v, expected unmarshalTypeError", err)
 	}
 }
