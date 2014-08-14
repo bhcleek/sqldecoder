@@ -9,7 +9,12 @@ import (
 type typeMap map[reflect.Type]map[string]int
 type Decoder struct {
 	rows *sql.Rows
-	tm   typeMap
+	d    decodeState
+}
+
+type decodeState struct {
+	tm typeMap
+	s  Scanner
 }
 
 type unmarshalTypeError struct {
@@ -22,8 +27,9 @@ func (e unmarshalTypeError) Error() string {
 
 // NewDecoder returns a new decoder that reads from rows.
 func NewDecoder(rows *sql.Rows) (*Decoder, error) {
-	d := &Decoder{rows: rows, tm: make(typeMap)}
-	return d, nil
+	d := decodeState{tm: make(typeMap), s: rows}
+	decoder := &Decoder{rows: rows, d: d}
+	return decoder, nil
 }
 
 // fieldMap provides a map whose keys are a column name and whose values are
@@ -57,8 +63,8 @@ func fieldMap(t reflect.Type) map[string]int {
 	return fm
 }
 
-// unmarshal gets the data from the row and stores it in the value pointed to by v.
-func (d *Decoder) unmarshal(v interface{}) error {
+// unmarshal gets the data from the scanner and stores it in the value pointed to by v.
+func (d *decodeState) unmarshal(v interface{}) error {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return unmarshalTypeError{rt: rv.Type()}
@@ -73,7 +79,7 @@ func (d *Decoder) unmarshal(v interface{}) error {
 			d.tm[dst.Type()] = fm
 		}
 
-		cols, err := d.rows.Columns()
+		cols, err := d.s.Columns()
 		if err != nil {
 			return err
 		}
@@ -88,7 +94,7 @@ func (d *Decoder) unmarshal(v interface{}) error {
 			}
 		}
 
-		if err := d.rows.Scan(fields...); err != nil {
+		if err := d.s.Scan(fields...); err != nil {
 			return err
 		}
 	default:
@@ -105,11 +111,25 @@ func (d *Decoder) Decode(v interface{}) error {
 	}
 
 	if ok := d.rows.Next(); ok {
-		if err := d.unmarshal(v); err != nil {
+		if err := d.d.unmarshal(v); err != nil {
 			return err
 		}
 	} else {
 		return io.EOF
 	}
 	return nil
+}
+
+// Scanner copies columns into the values pointed at by dest.
+// *sql.Rows implements Scanner.
+type Scanner interface {
+	Scan(dest ...interface{}) error
+	Columns() ([]string, error)
+}
+
+// Unmarshal gets the data from row and stores it in v.
+func Unmarshal(s Scanner, v interface{}) error {
+	d := decodeState{tm: make(typeMap), s: s}
+	return d.unmarshal(v)
+
 }
