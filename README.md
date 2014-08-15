@@ -45,8 +45,8 @@ func (p *Person) ColumnMap() ColumnMap{
 
 ```go
 type Person struct{
-	firstName string `db:"FirstName"`
-	lastName  string `db:"LastName"`
+	First_Name string `db:"FirstName"`
+	Last_Name  string `db:"LastName"`
 }
 ```
 
