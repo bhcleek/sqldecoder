@@ -63,44 +63,78 @@ func fieldMap(t reflect.Type) map[string]int {
 	return fm
 }
 
-// unmarshal gets the data from the scanner and stores it in the value pointed to by v.
-func (d *decodeState) unmarshal(v interface{}) error {
+// columnMapFromTags uses tags to provide a ColumnMap. The column name for a
+// given exported field is (in priority order):
+// 	the value of a sql tag on the field
+// 	the field the field name
+func (ds *decodeState) columnMapFromTags(v interface{}) (ColumnMap, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
-		return unmarshalTypeError{rt: rv.Type()}
+		return nil, unmarshalTypeError{rt: rv.Type()}
 	}
 	dst := rv.Elem()
 
+	var cm ColumnMap
 	switch dst.Kind() {
 	case reflect.Struct:
-		fm, ok := d.tm[dst.Type()]
+		tfm, ok := ds.tm[dst.Type()]
 		if !ok {
-			fm = fieldMap(dst.Type())
-			d.tm[dst.Type()] = fm
+			tfm = fieldMap(dst.Type())
+			ds.tm[dst.Type()] = tfm
 		}
 
-		cols, err := d.s.Columns()
+		cols, err := ds.s.Columns()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		fields := make([]interface{}, len(cols))
-		for ci, v := range cols {
-			if fi, ok := fm[v]; ok {
+		cm = make(map[string]interface{}, len(cols))
+		for _, col := range cols {
+			if fi, ok := tfm[col]; ok {
 				if fv := dst.Field(fi); fv.CanSet() {
-					fields[ci] = fv.Addr().Interface()
-					continue
+					cm[col] = fv.Addr().Interface()
 				}
 			}
 		}
 
-		if err := d.s.Scan(fields...); err != nil {
-			return err
-		}
 	default:
-		return unmarshalTypeError{rt: dst.Type()}
+		return nil, unmarshalTypeError{rt: dst.Type()}
 	}
-	return nil
+	return cm, nil
+}
+
+func (ds *decodeState) fields(v interface{}) ([]interface{}, error) {
+	var mappedFields ColumnMap
+	var err error
+	if fm, ok := v.(ColumnMapper); ok {
+		mappedFields = fm.ColumnMap()
+	} else {
+		mappedFields, err = ds.columnMapFromTags(v)
+		if err != nil {
+			return nil, err
+		}
+	}
+	cols, err := ds.s.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	fields := make([]interface{}, len(cols))
+	for i, v := range cols {
+		fields[i] = mappedFields[v]
+		continue
+	}
+	return fields, nil
+}
+
+// unmarshal gets the data from the scanner and stores it in the value pointed to by v.
+func (ds *decodeState) unmarshal(v interface{}) error {
+	fields, err := ds.fields(v)
+	if err != nil {
+		return err
+	}
+
+	return ds.s.Scan(fields...)
 }
 
 // Decode the next row into v. v is expected to be a struct.
@@ -132,4 +166,10 @@ func Unmarshal(s Scanner, v interface{}) error {
 	d := decodeState{tm: make(typeMap), s: s}
 	return d.unmarshal(v)
 
+}
+
+// ColumnMap maps column names to fields. Values are expected to be pointers.
+type ColumnMap map[string]interface{}
+type ColumnMapper interface {
+	ColumnMap() ColumnMap
 }

@@ -11,40 +11,6 @@ import (
 	"github.com/erikstmartin/go-testdb"
 )
 
-// rows is a driver.Rows to be used by the testdb driver.
-type rows struct {
-	closed  bool
-	data    [][]driver.Value
-	columns []string
-}
-
-func (r *rows) Close() error {
-	if !r.closed {
-		r.closed = true
-	}
-	return nil
-}
-
-func (r *rows) Columns() []string {
-	return r.columns
-}
-
-func (r *rows) Next(dest []driver.Value) error {
-	if len(r.data) > 0 {
-		copy(dest, r.data[0][0:])
-		r.data = r.data[1:]
-		return nil
-	}
-	return io.EOF
-}
-
-type EmptyRowsRecord struct {
-}
-
-func (rows EmptyRowsRecord) Rows() *sql.Rows {
-	return nil
-}
-
 func TestZeroValue(t *testing.T) {
 	actual := Decoder{}
 	err := actual.Decode(nil)
@@ -63,6 +29,26 @@ func TestNilRows(t *testing.T) {
 	}
 }
 
+type columnMappedContainer struct {
+	id           int64
+	amount       float64
+	isTruth      bool
+	data         []byte
+	description  string
+	creationTime time.Time
+}
+
+func (v *columnMappedContainer) ColumnMap() ColumnMap {
+	return ColumnMap{
+		"ID":           &v.id,
+		"Amount":       &v.amount,
+		"IsTruth":      &v.isTruth,
+		"Data":         &v.data,
+		"Description":  &v.description,
+		"CreationTime": &v.creationTime,
+	}
+}
+
 type valueContainer struct {
 	ID           int64
 	Amount       float64
@@ -73,32 +59,75 @@ type valueContainer struct {
 }
 
 type taggedValueContainer struct {
-	Natural      int64     `sql:"id"`
-	Amount       float64   `sql:"amount"`
-	Truth        bool      `sql:"is_truth"`
-	Blob         []byte    `sql:"data"`
-	Description  string    `sql:"description"`
-	CreationTime time.Time `sql:"creation_time"`
+	Natural      int64     `sql:"ID"`
+	Amount       float64   `sql:"Amount"`
+	Truth        bool      `sql:"IsTruth"`
+	Blob         []byte    `sql:"Data"`
+	Description  string    `sql:"Description"`
+	CreationTime time.Time `sql:"CreationTime"`
 }
 
-func TestTaggedStructPointerValues(t *testing.T) {
+func TestColumnMapper(t *testing.T) {
 	defer testdb.Reset()
 
-	db, err := sql.Open("testdb", "")
+	rows, err := stubRows()
 	if err != nil {
-		t.Fatalf("test database did not open: %s", err)
+		t.Fatal(err)
 	}
 
-	sql := "SELECT fields FROM TheTable"
-	result := &rows{columns: []string{"id", "amount", "is_truth", "data", "description", "creation_time"},
-		data: [][]driver.Value{[]driver.Value{1, 1.1, false, []byte("I am a little teapot"), []byte("short and stout"), time.Date(2009, 11, 10, 23, 0, 0, 0, time.UTC)}}}
-	testdb.StubQuery(sql, result)
-
-	rows, err := db.Query(sql)
 	target, err := NewDecoder(rows)
 	if err != nil {
-		t.Fatal("error creating decoder")
+		t.Fatal(err)
 	}
+
+	expected := columnMappedContainer{id: 1, amount: 1.1, isTruth: false, data: []byte("blob"), description: "short and stout", creationTime: time.Date(2009, 11, 10, 23, 00, 00, 0, time.UTC)}
+	actual := new(columnMappedContainer)
+	if err = target.Decode(actual); err != nil {
+		t.Fatalf("Decode failed: %s", err)
+	}
+
+	if len(target.d.tm) != 0 {
+		t.Fatalf("decoder used type map")
+	}
+
+	if actual.id != expected.id {
+		t.Errorf("got %v, expected %v", actual.id, expected.id)
+	}
+
+	if actual.amount != expected.amount {
+		t.Errorf("got %v, expected %v", actual.amount, expected.amount)
+	}
+
+	if actual.isTruth != expected.isTruth {
+		t.Errorf("got %v, expected %v", actual.isTruth, expected.isTruth)
+	}
+
+	if bytes.Equal(actual.data, expected.data) {
+		t.Errorf("got %v, expected %v", actual.data, expected.data)
+	}
+
+	if actual.description != expected.description {
+		t.Errorf("got '%v', expected '%v'", actual.description, expected.description)
+	}
+
+	if actual.creationTime != expected.creationTime {
+		t.Errorf("got %v, expected %v", actual.creationTime, expected.creationTime)
+	}
+}
+
+func TestTaggedStruct(t *testing.T) {
+	defer testdb.Reset()
+
+	rows, err := stubRows()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	target, err := NewDecoder(rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	expected := taggedValueContainer{Natural: 1, Amount: 1.1, Truth: false, Blob: []byte("blob"), Description: "short and stout", CreationTime: time.Date(2009, 11, 10, 23, 00, 00, 0, time.UTC)}
 	actual := new(taggedValueContainer)
 	if err = target.Decode(actual); err != nil {
@@ -130,20 +159,14 @@ func TestTaggedStructPointerValues(t *testing.T) {
 	}
 }
 
-func TestUntaggedStructPointerValues(t *testing.T) {
+func TestUntaggedStruct(t *testing.T) {
 	defer testdb.Reset()
 
-	db, err := sql.Open("testdb", "")
+	rows, err := stubRows()
 	if err != nil {
-		t.Fatalf("test database did not open: %s", err)
+		t.Fatal(err)
 	}
 
-	sql := "SELECT fields FROM TheTable"
-	result := &rows{columns: []string{"ID", "Amount", "IsTruth", "Data", "Description", "CreationTime"},
-		data: [][]driver.Value{[]driver.Value{1, 1.1, false, []byte("I am a little teapot"), []byte("short and stout"), time.Date(2009, 11, 10, 23, 0, 0, 0, time.UTC)}}}
-	testdb.StubQuery(sql, result)
-
-	rows, err := db.Query(sql)
 	target, err := NewDecoder(rows)
 	if err != nil {
 		t.Fatal("error creating decoder")
@@ -182,17 +205,11 @@ func TestUntaggedStructPointerValues(t *testing.T) {
 func TestDecodeReturnsEOF(t *testing.T) {
 	defer testdb.Reset()
 
-	db, err := sql.Open("testdb", "")
+	rows, err := stubRows()
 	if err != nil {
-		t.Fatalf("test database did not open: %s", err)
+		t.Fatal(err)
 	}
 
-	sql := "SELECT fields FROM TheTable"
-	result := &rows{columns: []string{"id", "amount", "is_truth", "data", "description", "creation_time"},
-		data: [][]driver.Value{[]driver.Value{1, 1.1, false, []byte("I am a little teapot"), []byte("short and stout"), time.Date(2009, 11, 10, 23, 0, 0, 0, time.UTC)}}}
-	testdb.StubQuery(sql, result)
-
-	rows, err := db.Query(sql)
 	target, err := NewDecoder(rows)
 	if err != nil {
 		t.Fatal("error creating decoder")
@@ -207,18 +224,9 @@ func TestDecodeReturnsEOF(t *testing.T) {
 func TestDecodeStructValueProvidesError(t *testing.T) {
 	defer testdb.Reset()
 
-	db, err := sql.Open("testdb", "")
+	rows, err := stubRows()
 	if err != nil {
-		t.Fatalf("test database did not open: %s", err)
-	}
-	sql := "SELECT files from table"
-	result := &rows{columns: []string{"id", "amount", "is_truth", "data", "description", "creation_time"},
-		data: [][]driver.Value{[]driver.Value{1, 1.1, false, []byte("I am a little teapot"), []byte("short and stout"), time.Date(2009, 11, 10, 23, 0, 0, 0, time.UTC)}}}
-	testdb.StubQuery(sql, result)
-
-	rows, err := db.Query(sql)
-	if err != nil {
-		t.Fatalf("query error: %s", err)
+		t.Fatal(err)
 	}
 
 	target, err := NewDecoder(rows)
@@ -240,18 +248,9 @@ func TestDecodeStructValueProvidesError(t *testing.T) {
 func TestDecodeNonStructProvidesError(t *testing.T) {
 	defer testdb.Reset()
 
-	db, err := sql.Open("testdb", "")
+	rows, err := stubRows()
 	if err != nil {
-		t.Fatalf("test database did not open: %s", err)
-	}
-	sql := "SELECT files from table"
-	result := &rows{columns: []string{"id", "amount", "is_truth", "data", "description", "creation_time"},
-		data: [][]driver.Value{[]driver.Value{1, 1.1, false, []byte("I am a little teapot"), []byte("short and stout"), time.Date(2009, 11, 10, 23, 0, 0, 0, time.UTC)}}}
-	testdb.StubQuery(sql, result)
-
-	rows, err := db.Query(sql)
-	if err != nil {
-		t.Fatalf("query error: %s", err)
+		t.Fatal(err)
 	}
 
 	target, err := NewDecoder(rows)
@@ -268,4 +267,52 @@ func TestDecodeNonStructProvidesError(t *testing.T) {
 	if _, ok := err.(unmarshalTypeError); !ok {
 		t.Fatalf("Decode(*actual), got %v, expected unmarshalTypeError", err)
 	}
+}
+
+// rows is a driver.Rows to be used by the testdb driver.
+type rows struct {
+	closed  bool
+	data    [][]driver.Value
+	columns []string
+}
+
+func (r *rows) Close() error {
+	if !r.closed {
+		r.closed = true
+	}
+	return nil
+}
+
+func (r *rows) Columns() []string {
+	return r.columns
+}
+
+func (r *rows) Next(dest []driver.Value) error {
+	if len(r.data) > 0 {
+		copy(dest, r.data[0][0:])
+		r.data = r.data[1:]
+		return nil
+	}
+	return io.EOF
+}
+
+type EmptyRowsRecord struct {
+}
+
+func (rows EmptyRowsRecord) Rows() *sql.Rows {
+	return nil
+}
+
+func stubRows() (*sql.Rows, error) {
+	db, err := sql.Open("testdb", "")
+	if err != nil {
+		return nil, err
+	}
+
+	sql := "SELECT fields FROM TheTable"
+	result := &rows{columns: []string{"ID", "Amount", "IsTruth", "Data", "Description", "CreationTime"},
+		data: [][]driver.Value{[]driver.Value{1, 1.1, false, []byte("I am a little teapot"), []byte("short and stout"), time.Date(2009, 11, 10, 23, 0, 0, 0, time.UTC)}}}
+	testdb.StubQuery(sql, result)
+
+	return db.Query(sql)
 }
