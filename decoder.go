@@ -66,7 +66,7 @@ func fieldMap(t reflect.Type) map[string]int {
 // columnMapFromTags uses tags to provide a ColumnMap. The column name for a
 // given exported field is (in priority order):
 // 	the value of a sql tag on the field
-// 	the field the field name
+// 	the field name
 func (ds *decodeState) columnMapFromTags(v interface{}) (ColumnMap, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
