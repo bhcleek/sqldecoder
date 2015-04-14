@@ -310,8 +310,8 @@ func stubRows() (*sql.Rows, error) {
 	}
 
 	sql := "SELECT fields FROM TheTable"
-	result := &rows{columns: []string{"ID", "Amount", "IsTruth", "Data", "Description", "CreationTime"},
-		data: [][]driver.Value{[]driver.Value{1, 1.1, false, []byte("I am a little teapot"), []byte("short and stout"), time.Date(2009, 11, 10, 23, 0, 0, 0, time.UTC)}}}
+	result := &rows{columns: []string{"ID", "Amount", "IsTruth", "Data", "Description", "CreationTime", "IgnoredField"},
+		data: [][]driver.Value{[]driver.Value{1, 1.1, false, []byte("I am a little teapot"), []byte("short and stout"), time.Date(2009, 11, 10, 23, 0, 0, 0, time.UTC), []byte("ignored")}}}
 	testdb.StubQuery(sql, result)
 
 	return db.Query(sql)
