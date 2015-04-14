@@ -121,8 +121,11 @@ func (ds *decodeState) fields(v interface{}) ([]interface{}, error) {
 
 	fields := make([]interface{}, len(cols))
 	for i, v := range cols {
-		fields[i] = mappedFields[v]
-		continue
+		if fieldDest, ok := mappedFields[v]; ok {
+			fields[i] = fieldDest
+		} else {
+			fields[i] = new(interface{})
+		}
 	}
 	return fields, nil
 }
