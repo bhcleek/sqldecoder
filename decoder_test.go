@@ -20,12 +20,9 @@ func TestZeroValue(t *testing.T) {
 }
 
 func TestNilRows(t *testing.T) {
-	if actual, err := NewDecoder(nil); err == nil {
-		if err = actual.Decode(nil); err != io.EOF {
-			t.Fail()
-		}
-	} else {
-		t.Error("error creating decoder")
+	actual := NewDecoder(nil)
+	if err := actual.Decode(nil); err != io.EOF {
+		t.Fail()
 	}
 }
 
@@ -75,10 +72,7 @@ func TestColumnMapper(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	target, err := NewDecoder(rows)
-	if err != nil {
-		t.Fatal(err)
-	}
+	target := NewDecoder(rows)
 
 	expected := columnMappedContainer{id: 1, amount: 1.1, isTruth: false, data: []byte("blob"), description: "short and stout", creationTime: time.Date(2009, 11, 10, 23, 00, 00, 0, time.UTC)}
 	actual := new(columnMappedContainer)
@@ -123,10 +117,7 @@ func TestTaggedStruct(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	target, err := NewDecoder(rows)
-	if err != nil {
-		t.Fatal(err)
-	}
+	target := NewDecoder(rows)
 
 	expected := taggedValueContainer{Natural: 1, Amount: 1.1, Truth: false, Blob: []byte("blob"), Description: "short and stout", CreationTime: time.Date(2009, 11, 10, 23, 00, 00, 0, time.UTC)}
 	actual := new(taggedValueContainer)
@@ -167,10 +158,7 @@ func TestUntaggedStruct(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	target, err := NewDecoder(rows)
-	if err != nil {
-		t.Fatal("error creating decoder")
-	}
+	target := NewDecoder(rows)
 	expected := valueContainer{ID: 1, Amount: 1.1, IsTruth: false, Data: []byte("blob"), Description: "short and stout", CreationTime: time.Date(2009, 11, 10, 23, 00, 00, 0, time.UTC)}
 	actual := new(valueContainer)
 	if err = target.Decode(actual); err != nil {
@@ -210,10 +198,7 @@ func TestDecodeReturnsEOF(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	target, err := NewDecoder(rows)
-	if err != nil {
-		t.Fatal("error creating decoder")
-	}
+	target := NewDecoder(rows)
 	actual := &struct{}{}
 	_ = target.Decode(actual)
 	if err = target.Decode(actual); err != io.EOF {
@@ -229,10 +214,7 @@ func TestDecodeStructValueProvidesError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	target, err := NewDecoder(rows)
-	if err != nil {
-		t.Fatal("error creating decoder")
-	}
+	target := NewDecoder(rows)
 
 	actual := new(taggedValueContainer)
 	err = target.Decode(*actual)
@@ -253,10 +235,7 @@ func TestDecodeNonStructProvidesError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	target, err := NewDecoder(rows)
-	if err != nil {
-		t.Fatal("error creating decoder")
-	}
+	target := NewDecoder(rows)
 
 	vc := new(int64)
 	err = target.Decode(vc)

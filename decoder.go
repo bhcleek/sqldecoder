@@ -26,10 +26,10 @@ func (e unmarshalTypeError) Error() string {
 }
 
 // NewDecoder returns a new decoder that reads from rows.
-func NewDecoder(rows *sql.Rows) (*Decoder, error) {
+func NewDecoder(rows *sql.Rows) *Decoder {
 	d := decodeState{tm: make(typeMap), s: rows}
 	decoder := &Decoder{rows: rows, d: d}
-	return decoder, nil
+	return decoder
 }
 
 // fieldMap provides a map whose keys are a column name and whose values are
