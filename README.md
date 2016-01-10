@@ -1,5 +1,7 @@
 # sqldecoder
 
+[![godoc](http://img.shields.io/badge/godoc-reference-blue.svg?style=flat)](https://godoc.org/github.com/bhcleek/sqldecoder)
+
 decode sql.Rows into structs without having to remember ordinal positions. sqldecoder supports scanning into structs using either an interface for reflection-less, or you can tag the struct fields with the column names to which they map. If the struct neither implements the ColumnMap interface nor has tags, sqldecoder expects the column names and field names to match exactly.
 
 ## Quick Start
