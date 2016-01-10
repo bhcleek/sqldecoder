@@ -7,6 +7,8 @@ import (
 )
 
 type typeMap map[reflect.Type]map[string]int
+
+// A Decoder reads and decodes values from rows.
 type Decoder struct {
 	rows *sql.Rows
 	d    decodeState
@@ -171,8 +173,13 @@ func Unmarshal(s Scanner, v interface{}) error {
 
 }
 
-// ColumnMap maps column names to fields. Values are expected to be pointers.
+// ColumnMap maps column names to values into which the named column can be
+// scanned. Values are expected to be pointers.
 type ColumnMap map[string]interface{}
+
+// ColumnMapper is the interface implemented by an object that provides a
+// ColumnMap to resolve column names to values into which the column should be
+// scanned.
 type ColumnMapper interface {
 	ColumnMap() ColumnMap
 }
