@@ -2,11 +2,11 @@
 
 [![godoc](http://img.shields.io/badge/godoc-reference-blue.svg?style=flat)](https://godoc.org/github.com/bhcleek/sqldecoder)
 
-decode sql.Rows into structs without having to remember ordinal positions. sqldecoder supports scanning into structs using either an interface for reflection-less, or you can tag the struct fields with the column names to which they map. If the struct neither implements the ColumnMap interface nor has tags, sqldecoder expects the column names and field names to match exactly.
+Decode `sql.Rows` into structs without having to remember ordinal positions. sqldecoder supports maps structs fields to SQL columns without reflection using an interface, `ColumnMapper`. Alternatively, sqldecoder will use reflection to map tagged struct fields or struct field names to SQL columns. If the struct neither implements `ColumnMapper` nor has tags, sqldecoder expects the column names and field names to match exactly.
 
 ## Quick Start
 
-Regardless of whether a struct implements the ColumnMap interface or not, using sqldecoder is the same:
+Regardless of whether a struct implements the `ColumnMapper` interface or not, using sqldecoder is the same:
 
 ```go
 func GetPeople(r *sql.Rows) (people []Person){
@@ -29,7 +29,7 @@ func GetPeople(r *sql.Rows) (people []Person){
 
 ### reflection-less 
 
-Implement the ColumnMap interface
+Implement `ColumnMapper`
 
 ```go
 type Person struct {
