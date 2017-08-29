@@ -1,7 +1,6 @@
 package sqldecoder
 
 import (
-	"database/sql"
 	"io"
 	"reflect"
 )
@@ -10,7 +9,7 @@ type typeMap map[reflect.Type]map[string]int
 
 // A Decoder reads and decodes values from rows.
 type Decoder struct {
-	rows *sql.Rows
+	rows Rows
 	d    decodeState
 }
 
@@ -28,7 +27,7 @@ func (e unmarshalTypeError) Error() string {
 }
 
 // NewDecoder returns a new decoder that reads from rows.
-func NewDecoder(rows *sql.Rows) *Decoder {
+func NewDecoder(rows Rows) *Decoder {
 	d := decodeState{tm: make(typeMap), s: rows}
 	decoder := &Decoder{rows: rows, d: d}
 	return decoder
@@ -164,6 +163,17 @@ func (d *Decoder) Decode(v interface{}) error {
 type Scanner interface {
 	Scan(dest ...interface{}) error
 	Columns() ([]string, error)
+}
+
+// Rows manages a set of result rows for scanning.
+//
+// Every call to Scan, even the first one, must be preceded by a call to Next. Next returns
+// false if there is no next result row to scan.
+//
+// *sql.Rows implements Rows.
+type Rows interface {
+	Scanner
+	Next() bool
 }
 
 // Unmarshal gets the data from row and stores it in v.
