@@ -278,11 +278,11 @@ func (r *rows) Next(dest []driver.Value) error {
 type EmptyRowsRecord struct {
 }
 
-func (rows EmptyRowsRecord) Rows() *sql.Rows {
+func (rows EmptyRowsRecord) Rows() Rows {
 	return nil
 }
 
-func stubRows() (*sql.Rows, error) {
+func stubRows() (Rows, error) {
 	db, err := sql.Open("testdb", "")
 	if err != nil {
 		return nil, err
