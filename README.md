@@ -2,7 +2,7 @@
 
 [![godoc](http://img.shields.io/badge/godoc-reference-blue.svg?style=flat)](https://godoc.org/github.com/bhcleek/sqldecoder)
 
-Decode `sql.Rows` into structs without having to remember ordinal positions. sqldecoder supports maps structs fields to SQL columns without reflection using an interface, `ColumnMapper`. Alternatively, sqldecoder will use reflection to map tagged struct fields or struct field names to SQL columns. If the struct neither implements `ColumnMapper` nor has tags, sqldecoder expects the column names and field names to match exactly.
+Decode `sql.Rows` into structs without having to remember ordinal positions. sqldecoder maps struct fields to SQL columns without reflection using an interface, `ColumnMapper`. Alternatively, sqldecoder will use reflection to map tagged struct fields or struct field names to SQL columns. If the struct neither implements `ColumnMapper` nor has tags, sqldecoder expects the column names and field names to match exactly.
 
 ## Quick Start
 
