@@ -1,6 +1,7 @@
 package sqldecoder
 
 import (
+	"fmt"
 	"io"
 	"reflect"
 )
@@ -23,13 +24,14 @@ type unmarshalTypeError struct {
 }
 
 func (e unmarshalTypeError) Error() string {
-	return "Cannot unmarshal into value of type " + e.rt.String()
+	return fmt.Err
 }
 
 // NewDecoder returns a new decoder that reads from rows.
 func NewDecoder(rows Rows) *Decoder {
 	d := decodeState{tm: make(typeMap), s: rows}
 	decoder := &Decoder{rows: rows, d: d}
+
 	return decoder
 }
 
